@@ -77,7 +77,7 @@ from smart_split import split_photos_smart
 
 output_files = split_photos_smart(
     "scan.png",
-    output_dir="output",
+    output_dir="../output",
     debug=True
 )
 

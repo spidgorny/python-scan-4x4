@@ -180,6 +180,7 @@ def extract_and_straighten_photo(
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=(255, 255, 255)
+
     )
     
     # Calculate crop box in rotated image

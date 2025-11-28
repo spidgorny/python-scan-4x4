@@ -44,7 +44,8 @@ Thumbs.db
 scan_*.png
 temp_scan_*.png
 simulated_scan_*.png
-output/*.png
+output/*
+photos/
 !output/.gitkeep
 
 # Logs

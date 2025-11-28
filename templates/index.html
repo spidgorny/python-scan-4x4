@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A4 Scanner - Photo Splitter</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>📄 Scanner</h1>
+            </div>
+            
+            <div class="scan-section">
+                <button id="scanBtn" class="scan-button">
+                    <span class="scan-icon">📷</span>
+                    <span class="scan-text">Scan Document</span>
+                </button>
+                <div id="scanStatus" class="scan-status hidden">
+                    <div class="spinner"></div>
+                    <span>Scanning...</span>
+                </div>
+            </div>
+            
+            <div class="scans-list">
+                <h2>Scanned Files</h2>
+                <div id="scansList" class="scans-items">
+                    <p class="empty-message">No scans yet</p>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="main-header">
+                <h2>Scanned Document</h2>
+                <span id="scanInfo" class="scan-info"></span>
+            </div>
+            <div id="scanView" class="scan-view">
+                <div class="placeholder">
+                    <div class="placeholder-icon">📄</div>
+                    <p>Click "Scan Document" to start</p>
+                    <p class="placeholder-hint">or select a scan from the sidebar</p>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Photos Panel -->
+        <aside class="photos-panel">
+            <div class="photos-header">
+                <h2>Extracted Photos</h2>
+                <span id="photoCount" class="photo-count">0/4</span>
+            </div>
+            <div id="photosGrid" class="photos-grid">
+                <div class="photo-slot">
+                    <div class="photo-placeholder">
+                        <span>1</span>
+                    </div>
+                </div>
+                <div class="photo-slot">
+                    <div class="photo-placeholder">
+                        <span>2</span>
+                    </div>
+                </div>
+                <div class="photo-slot">
+                    <div class="photo-placeholder">
+                        <span>3</span>
+                    </div>
+                </div>
+                <div class="photo-slot">
+                    <div class="photo-placeholder">
+                        <span>4</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
