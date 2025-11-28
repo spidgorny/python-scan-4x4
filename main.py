@@ -3,6 +3,7 @@
 A4 Document Scanner with 2x2 Split
 
 Main application using the scanner driver architecture.
+Automatically detects photo edges and straightens images.
 """
 
 import sys
@@ -10,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 
 from scanners import ScannerManager, ScanSettings, ColorMode
-from poc_split import split_image_2x2
+from smart_split import split_photos_smart
 
 
 def main():
@@ -45,10 +46,11 @@ def main():
     
     # Generate output filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path("output")
-    output_dir.mkdir(exist_ok=True)
-    scan_output = output_dir / f"scan_{timestamp}.png"
-    split_output_dir = output_dir
+    scans_dir = Path("output") / "scans"
+    photos_dir = Path("photos")
+    scans_dir.mkdir(parents=True, exist_ok=True)
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    scan_output = scans_dir / f"scan_{timestamp}.png"
     
     # Configure scan settings
     settings = ScanSettings(
@@ -92,15 +94,19 @@ def main():
         print("  - Use simulation mode: uv run simulate_scan.py")
         sys.exit(1)
     
-    # Split into 2x2
+    # Split using smart edge detection
     print()
     print("=" * 60)
-    print("STEP 2: Splitting into 2x2 Grid")
+    print("STEP 2: Smart Photo Detection & Extraction")
     print("=" * 60)
     print()
     
     try:
-        split_files = split_image_2x2(str(scanned_file), str(split_output_dir))
+        split_files = split_photos_smart(
+            str(scanned_file), 
+            str(photos_dir),
+            debug=True  # Save debug visualization
+        )
         
         print()
         print("=" * 60)
