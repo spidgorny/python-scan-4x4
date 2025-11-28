@@ -4,6 +4,7 @@ let scans = [];
 
 // DOM Elements
 const scanBtn = document.getElementById('scanBtn');
+const splitBtn = document.getElementById('splitBtn');
 const scanStatus = document.getElementById('scanStatus');
 const scansList = document.getElementById('scansList');
 const scanView = document.getElementById('scanView');
@@ -36,15 +37,15 @@ async function loadScans() {
 // Render scans list
 function renderScansList() {
     if (scans.length === 0) {
-        scansList.innerHTML = '<p class="empty-message">No scans yet</p>';
+        scansList.innerHTML = '<p class="text-gray-400 text-sm">No scans yet</p>';
         return;
     }
     
     scansList.innerHTML = scans.map(scan => `
-        <div class="scan-item ${currentScan?.filename === scan.filename ? 'active' : ''}"
+        <div class="p-3 rounded-lg cursor-pointer transition duration-150 ${currentScan?.filename === scan.filename ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 hover:bg-gray-100 border border-transparent'}"
              onclick="selectScanByFilename('${scan.filename}')">
-            <div class="scan-item-name">${scan.filename}</div>
-            <div class="scan-item-time">${formatTime(scan.timestamp)}</div>
+            <div class="font-medium text-sm text-gray-800 truncate">${scan.filename}</div>
+            <div class="text-xs text-gray-500 mt-1">${formatTime(scan.timestamp)}</div>
         </div>
     `).join('');
 }
@@ -62,32 +63,75 @@ function selectScan(scan) {
     renderScansList();
     displayScan(scan);
     displayPhotos(scan);
+    
+    // Show split button
+    splitBtn.classList.remove('hidden');
 }
 
 // Display scan
 function displayScan(scan) {
     scanInfo.textContent = scan.filename;
-    scanView.innerHTML = `<img src="${scan.path}" alt="Scanned document">`;
+    scanView.innerHTML = `<div class="flex justify-center items-center h-full"><img src="${scan.path}" alt="Scanned document" class="max-w-full max-h-full object-contain shadow-lg"></div>`;
 }
 
 // Display photos
 function displayPhotos(scan) {
-    const photoSlots = photosGrid.querySelectorAll('.photo-slot');
+    photosGrid.innerHTML = '';
     
-    photoSlots.forEach((slot, index) => {
-        if (index < scan.photos.length) {
-            slot.innerHTML = `<img src="${scan.photos[index]}" alt="Photo ${index + 1}">`;
+    for (let i = 0; i < 4; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'aspect-square rounded-lg overflow-hidden';
+        
+        if (i < scan.photos.length) {
+            slot.innerHTML = `<img src="${scan.photos[i]}" alt="Photo ${i + 1}" class="w-full h-full object-cover">`;
         } else {
-            slot.innerHTML = `
-                <div class="photo-placeholder">
-                    <span>${index + 1}</span>
-                </div>
-            `;
+            slot.innerHTML = `<div class="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center"><span class="text-3xl font-light text-gray-400">${i + 1}</span></div>`;
         }
-    });
+        
+        photosGrid.appendChild(slot);
+    }
     
     photoCount.textContent = `${scan.photos.length}/4`;
 }
+
+// Trigger split
+splitBtn.addEventListener('click', async () => {
+    if (!currentScan || splitBtn.disabled) {
+        return;
+    }
+    
+    try {
+        splitBtn.disabled = true;
+        splitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Splitting...</span>';
+        
+        const response = await fetch('/api/split', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ filename: currentScan.filename })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Split error: ' + data.error);
+        } else {
+            // Reload scans to update photos
+            await loadScans();
+            const updatedScan = scans.find(s => s.filename === currentScan.filename);
+            if (updatedScan) {
+                selectScan(updatedScan);
+            }
+        }
+    } catch (error) {
+        console.error('Error splitting photos:', error);
+        alert('Failed to split photos: ' + error.message);
+    } finally {
+        splitBtn.disabled = false;
+        splitBtn.innerHTML = '<span>✂️</span> <span>Split Photos</span>';
+    }
+});
 
 // Trigger scan
 scanBtn.addEventListener('click', async () => {

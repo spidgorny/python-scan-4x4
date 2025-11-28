@@ -4,76 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A4 Scanner - Photo Splitter</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
+<body class="bg-gray-100 h-screen overflow-hidden">
+    <div class="flex h-full">
         <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1>📄 Scanner</h1>
+        <aside class="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-6 border-b border-gray-200">
+                <h1 class="text-2xl font-bold text-gray-800">📄 Scanner</h1>
             </div>
             
-            <div class="scan-section">
-                <button id="scanBtn" class="scan-button">
-                    <span class="scan-icon">📷</span>
-                    <span class="scan-text">Scan Document</span>
+            <div class="p-4 border-b border-gray-200">
+                <button id="scanBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2">
+                    <span class="text-xl">📷</span>
+                    <span>Scan Document</span>
                 </button>
-                <div id="scanStatus" class="scan-status hidden">
-                    <div class="spinner"></div>
-                    <span>Scanning...</span>
+                <div id="scanStatus" class="hidden mt-3 flex items-center justify-center gap-2 text-blue-600">
+                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="font-medium">Scanning...</span>
                 </div>
             </div>
             
-            <div class="scans-list">
-                <h2>Scanned Files</h2>
-                <div id="scansList" class="scans-items">
-                    <p class="empty-message">No scans yet</p>
+            <div class="flex-1 overflow-y-auto p-4">
+                <h2 class="text-sm font-semibold text-gray-600 uppercase mb-3">Scanned Files</h2>
+                <div id="scansList" class="space-y-2">
+                    <p class="text-gray-400 text-sm">No scans yet</p>
                 </div>
             </div>
         </aside>
         
         <!-- Main Content -->
-        <main class="main-content">
-            <div class="main-header">
-                <h2>Scanned Document</h2>
-                <span id="scanInfo" class="scan-info"></span>
+        <main class="flex-1 flex flex-col bg-gray-50">
+            <div class="p-6 bg-white border-b border-gray-200 flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-800">Scanned Document</h2>
+                <div class="flex items-center gap-4">
+                    <button id="splitBtn" class="hidden bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
+                        <span>✂️</span>
+                        <span>Split Photos</span>
+                    </button>
+                    <span id="scanInfo" class="text-sm text-gray-500"></span>
+                </div>
             </div>
-            <div id="scanView" class="scan-view">
-                <div class="placeholder">
-                    <div class="placeholder-icon">📄</div>
-                    <p>Click "Scan Document" to start</p>
-                    <p class="placeholder-hint">or select a scan from the sidebar</p>
+            <div id="scanView" class="flex-1 overflow-auto p-6">
+                <div class="h-full flex items-center justify-center text-center">
+                    <div>
+                        <div class="text-6xl mb-4">📄</div>
+                        <p class="text-gray-600 text-lg mb-2">Click "Scan Document" to start</p>
+                        <p class="text-gray-400 text-sm">or select a scan from the sidebar</p>
+                    </div>
                 </div>
             </div>
         </main>
         
         <!-- Photos Panel -->
-        <aside class="photos-panel">
-            <div class="photos-header">
-                <h2>Extracted Photos</h2>
-                <span id="photoCount" class="photo-count">0/4</span>
+        <aside class="w-80 bg-white border-l border-gray-200 flex flex-col">
+            <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-800">Extracted Photos</h2>
+                <span id="photoCount" class="text-sm font-medium text-gray-500">0/4</span>
             </div>
-            <div id="photosGrid" class="photos-grid">
-                <div class="photo-slot">
-                    <div class="photo-placeholder">
-                        <span>1</span>
-                    </div>
+            <div id="photosGrid" class="flex-1 grid grid-cols-2 gap-3 p-4 overflow-y-auto">
+                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <span class="text-3xl font-light text-gray-400">1</span>
                 </div>
-                <div class="photo-slot">
-                    <div class="photo-placeholder">
-                        <span>2</span>
-                    </div>
+                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <span class="text-3xl font-light text-gray-400">2</span>
                 </div>
-                <div class="photo-slot">
-                    <div class="photo-placeholder">
-                        <span>3</span>
-                    </div>
+                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <span class="text-3xl font-light text-gray-400">3</span>
                 </div>
-                <div class="photo-slot">
-                    <div class="photo-placeholder">
-                        <span>4</span>
-                    </div>
+                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <span class="text-3xl font-light text-gray-400">4</span>
                 </div>
             </div>
         </aside>

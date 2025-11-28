@@ -87,6 +87,35 @@ def scan_status():
     })
 
 
+@app.route('/api/split', methods=['POST'])
+def trigger_split():
+    """Split an existing scan into photos"""
+    data = request.get_json()
+    scan_filename = data.get('filename')
+    
+    if not scan_filename:
+        return jsonify({'error': 'No filename provided'}), 400
+    
+    scan_path = SCANS_DIR / scan_filename
+    if not scan_path.exists():
+        return jsonify({'error': 'Scan file not found'}), 404
+    
+    try:
+        # Split photos
+        photos = split_photos_smart(
+            str(scan_path),
+            str(PHOTOS_DIR),
+            debug=True
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'photos': [f'/photos/{Path(p).name}' for p in photos]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def perform_scan():
     """Perform scan and split (runs in background)"""
     global scan_in_progress
