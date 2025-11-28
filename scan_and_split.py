@@ -10,22 +10,26 @@ Requires a physical scanner. For simulation, use simulate_scan.py first.
 import sys
 from pathlib import Path
 from datetime import datetime
-from poc_scan import scan_document_sane, scan_document_wia, list_scanners, USE_SANE, USE_WIA
-from poc_split import split_image_2x2
+from scanners.manager import ScannerManager
+from scanners.base import ScanSettings
+from smart_split import smart_split_2x2
 
 
-def scan_and_split(output_dir="output"):
+def scan_and_split(scanner_ip="192.168.1.208", output_dir="output"):
     """
     Scan a document and split it into 2x2 grid.
     
     Args:
+        scanner_ip: IP address of eSCL scanner
         output_dir: Directory to save split images
     
     Returns:
         List of split image file paths
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    temp_scan_path = f"temp_scan_{timestamp}.png"
+    scan_dir = Path(output_dir) / "scans"
+    scan_dir.mkdir(parents=True, exist_ok=True)
+    temp_scan_path = scan_dir / f"scan_{timestamp}.png"
     
     try:
         # Step 1: Scan document
@@ -33,70 +37,34 @@ def scan_and_split(output_dir="output"):
         print("STEP 1: Scanning Document")
         print("=" * 60)
         
-        if not USE_SANE and not USE_WIA:
-            print("\n✗ ERROR: No scanning library available!")
-            print("\nInstall dependencies:")
-            print("  Linux/macOS: brew install sane-backends && uv add python-sane")
-            print("  Windows: uv add pywin32")
-            print("\nOr use simulation mode:")
-            print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
-            sys.exit(1)
+        manager = ScannerManager()
+        scanner_info = manager.get_preferred_scanner()
         
-        if USE_SANE:
-            # Real SANE scanner
-            devices = list_scanners()
-            if not devices:
-                print("\n✗ ERROR: No scanners detected!")
-                print("\nTroubleshooting:")
-                print("  1. Check scanner is powered on and connected")
-                print("  2. Run: scanimage -L")
-                print("  3. Check permissions (may need sudo)")
-                print("\nOr use simulation mode:")
-                print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
-                sys.exit(1)
-            
-            # Only prompt if multiple scanners
-            if len(devices) == 1:
-                print(f"\nUsing scanner: {devices[0][0]}")
-            else:
-                print(f"\nFound {len(devices)} scanners, using first: {devices[0][0]}")
-                print("Press Enter to start scanning (or Ctrl+C to cancel)...")
-                input()
-            
-            try:
-                scanned_file = scan_document_sane(temp_scan_path, device_index=0)
-            except Exception as scan_error:
-                print(f"\n✗ Scanner error: {scan_error}")
-                print("\nPossible reasons:")
-                print("  - No document on scanner bed")
-                print("  - Scanner in standby/power save mode")
-                print("  - Scanner busy with another application")
-                print("\nTry simulation mode instead:")
-                print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
-                sys.exit(1)
-                
-        elif USE_WIA:
-            # Windows WIA scanner
-            scanned_file = scan_document_wia(temp_scan_path)
+        if scanner_info is None:
+            raise Exception("No scanner available")
         
-        # Step 2: Split into 2x2 grid
+        print(f"\nUsing scanner: {scanner_info.name} ({scanner_info.driver})")
+        print(f"Scanning to: {temp_scan_path}")
+        
+        settings = ScanSettings(
+            color_mode="RGB24",
+            resolution=300,
+            source="Flatbed"
+        )
+        
+        manager.scan(scanner_info, temp_scan_path, settings)
+        
+        # Step 2: Split into 2x2 grid using smart detection
         print("\n" + "=" * 60)
-        print("STEP 2: Splitting into 2x2 Grid")
+        print("STEP 2: Smart Splitting into 2x2 Grid")
         print("=" * 60)
         
-        split_files = split_image_2x2(str(scanned_file), output_dir)
-        
-        # Step 3: Clean up temporary scan
-        print(f"\nCleaning up temporary file: {scanned_file.name}")
-        scanned_file.unlink()
+        split_files = smart_split_2x2(str(temp_scan_path), output_dir)
         
         return split_files
         
     except Exception as e:
-        # Clean up temp file if it exists
-        temp_file = Path(temp_scan_path)
-        if temp_file.exists():
-            temp_file.unlink()
+        print(f"Error during scan: {e}")
         raise e
 
 
@@ -108,11 +76,12 @@ def main():
     print()
     
     # Parse arguments
-    output_dir = sys.argv[1] if len(sys.argv) > 1 else "output"
+    scanner_ip = sys.argv[1] if len(sys.argv) > 1 else "192.168.1.208"
+    output_dir = sys.argv[2] if len(sys.argv) > 2 else "output"
     
     try:
         # Run the complete workflow
-        split_files = scan_and_split(output_dir)
+        split_files = scan_and_split(scanner_ip, output_dir)
         
         # Summary
         print("\n" + "=" * 60)
@@ -123,11 +92,6 @@ def main():
         for i, f in enumerate(split_files, 1):
             size_kb = f.stat().st_size / 1024
             print(f"  [{i}] {f.name} ({size_kb:.1f} KB)")
-        
-        print("\n💡 Next Steps:")
-        print("  1. Review the split images in the output/ directory")
-        print("  2. Test with a real scanner (install SANE if needed)")
-        print("  3. Proceed to build the web application interface")
         
     except KeyboardInterrupt:
         print("\n\nWorkflow cancelled by user.")

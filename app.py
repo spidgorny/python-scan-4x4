@@ -96,9 +96,9 @@ def perform_scan():
         
         # Initialize scanner
         manager = init_scanner()
-        scanner = manager.get_preferred_scanner()
+        scanner_info = manager.get_preferred_scanner()
         
-        if scanner is None:
+        if scanner_info is None:
             print("No scanner available")
             return
         
@@ -115,18 +115,14 @@ def perform_scan():
         
         # Scan
         print(f"Scanning to: {scan_output}")
-        result = scanner.scan(settings, str(scan_output))
+        result = manager.scan(scanner_info, scan_output, settings)
         
-        if not result.success:
-            print(f"Scan failed: {result.message}")
-            return
-        
-        print(f"Scan complete: {result.output_file}")
+        print(f"Scan complete: {result}")
         
         # Split photos
         print("Splitting photos...")
         photos = split_photos_smart(
-            str(result.output_file),
+            str(result),
             str(PHOTOS_DIR),
             debug=True
         )
@@ -158,10 +154,10 @@ if __name__ == '__main__':
     print()
     print("Starting server...")
     print()
-    print("Open in browser: http://localhost:8080")
+    print("Open in browser: http://localhost:8090")
     print()
     print("Press Ctrl+C to stop")
     print("=" * 60)
     print()
     
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=True, host='0.0.0.0', port=8090)

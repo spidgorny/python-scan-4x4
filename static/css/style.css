@@ -321,21 +321,7 @@ body {
     justify-content: center;
 }
 
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.scan-item, .photo-slot img {
-    animation: fadeIn 0.3s ease-out;
-}
+/* Animations disabled to prevent flickering */
 
 /* Responsive */
 @media (max-width: 1024px) {

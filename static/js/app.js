@@ -91,23 +91,38 @@ function displayPhotos(scan) {
 
 // Trigger scan
 scanBtn.addEventListener('click', async () => {
-    if (scanBtn.disabled) return;
+    console.log('Scan button clicked');
+    if (scanBtn.disabled) {
+        console.log('Button is disabled, ignoring click');
+        return;
+    }
     
     try {
         scanBtn.disabled = true;
         scanStatus.classList.remove('hidden');
+        console.log('Sending scan request to /api/scan');
         
-        const response = await fetch('/api/scan', { method: 'POST' });
+        const response = await fetch('/api/scan', { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Response status:', response.status);
         const data = await response.json();
+        console.log('Response data:', data);
         
         if (data.error) {
             alert(data.error);
             scanBtn.disabled = false;
             scanStatus.classList.add('hidden');
+        } else {
+            console.log('Scan started successfully');
         }
     } catch (error) {
         console.error('Error starting scan:', error);
-        alert('Failed to start scan');
+        alert('Failed to start scan: ' + error.message);
         scanBtn.disabled = false;
         scanStatus.classList.add('hidden');
     }

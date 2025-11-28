@@ -168,6 +168,11 @@ class ESCLDriver(ScannerDriver):
             )
             
             if response.status_code != 200:
+                # Clean up job before raising error
+                try:
+                    requests.delete(job_url, verify=False, timeout=5)
+                except:
+                    pass
                 raise ScannerIOError(f"Failed to get document: HTTP {response.status_code}")
             
             # Check content type and convert if needed
@@ -175,39 +180,46 @@ class ESCLDriver(ScannerDriver):
             output_file = Path(output_path)
             output_file.parent.mkdir(parents=True, exist_ok=True)
             
-            # If scanner returns PDF or JPEG, convert to PNG if requested
-            if 'pdf' in content_type and str(output_file).lower().endswith('.png'):
-                # Convert PDF to PNG
-                try:
-                    from PIL import Image
-                    import io
-                    from pdf2image import convert_from_bytes
-                    
-                    # Convert PDF to images (usually just one page for scanner)
-                    images = convert_from_bytes(response.content)
-                    if images:
-                        images[0].save(output_file, 'PNG')
+            try:
+                # If scanner returns PDF or JPEG, convert to PNG if requested
+                if 'pdf' in content_type and str(output_file).lower().endswith('.png'):
+                    # Convert PDF to PNG
+                    try:
+                        from PIL import Image
+                        import io
+                        from pdf2image import convert_from_bytes
+                        
+                        # Convert PDF to images (usually just one page for scanner)
+                        images = convert_from_bytes(response.content)
+                        if images:
+                            images[0].save(output_file, 'PNG')
+                        else:
+                            raise ScannerError("PDF conversion resulted in no images")
+                    except ImportError:
+                        # pdf2image not available, save as-is but warn
+                        raise ScannerError(
+                            "Scanner returned PDF but pdf2image not installed. "
+                            "Install with: uv add pdf2image pillow"
+                        )
+                elif 'jpeg' in content_type or 'jpg' in content_type:
+                    # If scanner returns JPEG, convert to PNG if needed
+                    if str(output_file).lower().endswith('.png'):
+                        from PIL import Image
+                        import io
+                        
+                        image = Image.open(io.BytesIO(response.content))
+                        image.save(output_file, 'PNG')
                     else:
-                        raise ScannerError("PDF conversion resulted in no images")
-                except ImportError:
-                    # pdf2image not available, save as-is but warn
-                    raise ScannerError(
-                        "Scanner returned PDF but pdf2image not installed. "
-                        "Install with: uv add pdf2image pillow"
-                    )
-            elif 'jpeg' in content_type or 'jpg' in content_type:
-                # If scanner returns JPEG, convert to PNG if needed
-                if str(output_file).lower().endswith('.png'):
-                    from PIL import Image
-                    import io
-                    
-                    image = Image.open(io.BytesIO(response.content))
-                    image.save(output_file, 'PNG')
+                        output_file.write_bytes(response.content)
                 else:
+                    # Save as-is
                     output_file.write_bytes(response.content)
-            else:
-                # Save as-is
-                output_file.write_bytes(response.content)
+            finally:
+                # Always delete the scan job to clean up and reset scanner state
+                try:
+                    requests.delete(job_url, verify=False, timeout=5)
+                except:
+                    pass  # Ignore errors during cleanup
             
             return output_file
             
