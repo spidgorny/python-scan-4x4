@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime
 from scanners.manager import ScannerManager
 from scanners.base import ScanSettings
-from smart_split import smart_split_2x2
+from smart_split import split_photos_grid_smart
 
 
 def scan_and_split(scanner_ip="192.168.1.208", output_dir="output"):
@@ -59,7 +59,7 @@ def scan_and_split(scanner_ip="192.168.1.208", output_dir="output"):
         print("STEP 2: Smart Splitting into 2x2 Grid")
         print("=" * 60)
         
-        split_files = smart_split_2x2(str(temp_scan_path), output_dir)
+        split_files = split_photos_grid_smart(str(temp_scan_path), output_dir=output_dir)
         
         return split_files
         

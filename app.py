@@ -15,7 +15,7 @@ import json
 import threading
 
 from scanners import ScannerManager, ScanSettings, ColorMode
-from smart_split import split_photos_smart
+from smart_split import split_photos_grid_smart
 
 app = Flask(__name__)
 
@@ -102,10 +102,9 @@ def trigger_split():
     
     try:
         # Split photos
-        photos = split_photos_smart(
+        photos = split_photos_grid_smart(
             str(scan_path),
-            str(PHOTOS_DIR),
-            debug=True
+            str(PHOTOS_DIR)
         )
         
         return jsonify({
@@ -150,10 +149,9 @@ def perform_scan():
         
         # Split photos
         print("Splitting photos...")
-        photos = split_photos_smart(
+        photos = split_photos_grid_smart(
             str(result),
-            str(PHOTOS_DIR),
-            debug=True
+            str(PHOTOS_DIR)
         )
         
         print(f"Split complete: {len(photos)} photos")

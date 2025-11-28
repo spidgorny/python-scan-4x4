@@ -117,9 +117,10 @@ class ESCLDriver(ScannerDriver):
             ColorMode.BLACK_WHITE: "BlackAndWhite1"
         }.get(settings.color_mode, "RGB24")
         
-        # A4 dimensions in 1/300ths of an inch
+        # A4+ dimensions in 1/300ths of an inch
         # A4 = 210mm x 297mm = 8.27" x 11.69"
-        width_300ths = int(8.27 * 300) if settings.width is None else int(settings.width / 25.4 * 300)
+        # Using 8.77" width (0.5" wider than A4) for better coverage
+        width_300ths = int(8.77 * 300) if settings.width is None else int(settings.width / 25.4 * 300)
         height_300ths = int(11.69 * 300) if settings.height is None else int(settings.height / 25.4 * 300)
         
         # Create scan settings XML
