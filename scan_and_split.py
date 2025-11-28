@@ -55,8 +55,13 @@ def scan_and_split(output_dir="output"):
                 print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
                 sys.exit(1)
             
-            print("\nPress Enter to start scanning (or Ctrl+C to cancel)...")
-            input()
+            # Only prompt if multiple scanners
+            if len(devices) == 1:
+                print(f"\nUsing scanner: {devices[0][0]}")
+            else:
+                print(f"\nFound {len(devices)} scanners, using first: {devices[0][0]}")
+                print("Press Enter to start scanning (or Ctrl+C to cancel)...")
+                input()
             
             try:
                 scanned_file = scan_document_sane(temp_scan_path, device_index=0)

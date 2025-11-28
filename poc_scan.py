@@ -142,12 +142,32 @@ def scan_document_sane(output_path="scanned_document.png", device_index=0):
     except AttributeError as e:
         print(f"  Warning: Could not set some options: {e}")
     
-    # Start scanning
+    # Start scanning with retry logic
     print("\nScanning... Please wait.")
     print("(Ensure document is placed on scanner bed)")
     
-    scanner.start()
-    image = scanner.snap()
+    # Try scanning with retries (scanner may need time to warm up)
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                print(f"\n  Retry {attempt}/{max_retries-1}... (waiting {retry_delay}s)")
+                import time
+                time.sleep(retry_delay)
+            
+            scanner.start()
+            image = scanner.snap()
+            break  # Success!
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"  ⚠️  Attempt failed: {e}")
+                print(f"  Scanner may need time to warm up...")
+            else:
+                # Final attempt failed, re-raise
+                raise
     
     # Save image
     output_file = Path(output_path)
@@ -244,9 +264,12 @@ def main():
                 sys.exit(1)
             
             # Use first scanner by default
-            print("\nUsing first scanner (index 0)")
-            print("Press Ctrl+C to cancel, or Enter to continue...")
-            input()
+            if len(devices) == 1:
+                print(f"\nUsing scanner: {devices[0][0]}")
+            else:
+                print(f"\nFound {len(devices)} scanners, using first: {devices[0][0]}")
+                print("Press Ctrl+C to cancel, or Enter to continue...")
+                input()
             
             try:
                 scan_document_sane(output_path, device_index=0)
