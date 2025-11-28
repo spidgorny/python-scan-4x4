@@ -61,12 +61,22 @@ wheels = [
 ]
 
 [[package]]
+name = "python-sane"
+version = "2.9.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/45/e9/e8baff69fc2347606c547201204d4b4843c7ad8ecb9164eceee42016eff6/python_sane-2.9.2.tar.gz", hash = "sha256:50ab8e0b033cececad26c7231a7254f80ad8fe9ec6b5c25add2493d7e2a07bbe", size = 22513, upload-time = "2025-07-21T21:20:21.735Z" }
+
+[[package]]
 name = "python-scan-4x4"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "pillow" },
+    { name = "python-sane" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pillow", specifier = ">=12.0.0" }]
+requires-dist = [
+    { name = "pillow", specifier = ">=12.0.0" },
+    { name = "python-sane", specifier = ">=2.9.2" },
+]

@@ -44,8 +44,23 @@ def scan_and_split(output_dir="output", use_simulation=None):
                 scanned_file = create_simulated_scan(temp_scan_path)
             else:
                 print("\nPress Enter to start scanning (or Ctrl+C to cancel)...")
-                input()
-                scanned_file = scan_document_sane(temp_scan_path, device_index=0)
+                print("(Or type 's' + Enter to use simulation mode)")
+                response = input()
+                
+                if response.lower() == 's':
+                    print("\nUsing simulation mode...")
+                    scanned_file = create_simulated_scan(temp_scan_path)
+                else:
+                    try:
+                        scanned_file = scan_document_sane(temp_scan_path, device_index=0)
+                    except Exception as scan_error:
+                        print(f"\n⚠️  Scanner error: {scan_error}")
+                        print("\nPossible reasons:")
+                        print("  - No document on scanner bed")
+                        print("  - Scanner in standby/power save mode")
+                        print("  - Scanner busy with another application")
+                        print("\nFalling back to simulation mode...")
+                        scanned_file = create_simulated_scan(temp_scan_path)
         elif USE_WIA:
             # Windows WIA scanner
             scanned_file = scan_document_wia(temp_scan_path)

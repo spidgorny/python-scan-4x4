@@ -88,6 +88,51 @@ def scan_document_sane(output_path="scanned_document.png", device_index=0):
     print("Configuring scanner...")
     
     try:
+        # Set source to Flatbed (not ADF/feeder)
+        # This ensures we use the flatbed scanner, not the document feeder
+        if 'source' in scanner.opt:
+            try:
+                # Get available sources
+                available_sources = scanner.opt['source'].constraint
+                print(f"  Available sources: {available_sources}")
+                
+                # Check if option is active (some scanners auto-select if only one source)
+                if scanner.opt['source'].is_active():
+                    # Try to set to Flatbed (prefer flatbed over ADF)
+                    # Common names: 'Flatbed', 'FlatBed', 'Platen', 'Normal'
+                    flatbed_names = ['Flatbed', 'FlatBed', 'Platen', 'Normal']
+                    
+                    source_set = False
+                    for source_name in flatbed_names:
+                        if source_name in available_sources:
+                            try:
+                                scanner.source = source_name
+                                print(f"  Source: {scanner.source} ✓")
+                                source_set = True
+                                break
+                            except AttributeError:
+                                # Option might not be settable
+                                pass
+                    
+                    if not source_set and available_sources:
+                        # Just use the first available source
+                        try:
+                            scanner.source = available_sources[0]
+                            print(f"  Source: {scanner.source} (auto-selected)")
+                        except AttributeError:
+                            print(f"  Source: {available_sources[0]} (read-only)")
+                else:
+                    # Option is inactive - scanner probably only has one source
+                    if len(available_sources) == 1:
+                        print(f"  Source: {available_sources[0]} (auto-selected)")
+                    else:
+                        print(f"  Source: Auto-detected (inactive option)")
+                    
+            except Exception as e:
+                print(f"  Source: Could not configure ({e})")
+        else:
+            print("  Source: Not configurable (using default)")
+        
         # Set mode to color (or 'Gray' for grayscale, 'Lineart' for B&W)
         scanner.mode = 'Color'
         
@@ -273,6 +318,7 @@ def create_simulated_scan(output_path="scanned_document.png"):
     
     # Save the simulated scan
     output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_file, 'PNG', dpi=(300, 300))
     
     print(f"✓ Simulated scan complete!")
@@ -306,9 +352,25 @@ def main():
             # Use first scanner by default
             print("\nUsing first scanner (index 0)")
             print("Press Ctrl+C to cancel, or Enter to continue...")
-            input()
+            print("(Or 's' + Enter to use simulation mode)")
+            response = input()
             
-            scan_document_sane(output_path, device_index=0)
+            if response.lower() == 's':
+                print("\nUsing simulation mode...")
+                create_simulated_scan(output_path)
+                return
+            
+            try:
+                scan_document_sane(output_path, device_index=0)
+            except Exception as scan_error:
+                print(f"\n⚠️  Scanner error: {scan_error}")
+                print("\nPossible reasons:")
+                print("  - No document on scanner bed")
+                print("  - Scanner is in standby/power save mode")
+                print("  - Scanner is being used by another application")
+                print("  - Connection issue")
+                print("\nFalling back to simulation mode...")
+                create_simulated_scan(output_path)
         
         elif USE_WIA:
             scan_document_wia(output_path)
@@ -327,7 +389,7 @@ def main():
         sys.exit(0)
     
     except Exception as e:
-        print(f"\n✗ Error during scan: {e}")
+        print(f"\n✗ Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

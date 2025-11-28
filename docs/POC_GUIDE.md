@@ -365,3 +365,105 @@ Once POC is working:
 - [python-sane PyPI](https://pypi.org/project/python-sane/)
 - [Pillow Documentation](https://pillow.readthedocs.io/)
 - [uv Documentation](https://github.com/astral-sh/uv)
+
+## Scanner Source Selection (Flatbed vs ADF)
+
+### Feature: Automatic Flatbed Selection
+
+The POC scripts automatically select the **Flatbed** (glass platen) source when scanning, rather than the ADF (Automatic Document Feeder). This is important for scanners with multiple scanning sources.
+
+#### Why Flatbed?
+
+Flatbed scanning is preferred for the 2x2 split use case because:
+- ✅ Better for single documents, photos, and books
+- ✅ Higher quality scans (no paper feed mechanism)
+- ✅ Suitable for A4 documents that will be split
+- ✅ No risk of paper jams or misfeeds
+
+#### How It Works
+
+The POC automatically:
+1. Checks if scanner has a `source` option
+2. Lists available sources (e.g., `['Flatbed', 'ADF', 'ADF Duplex']`)
+3. Attempts to set source to one of:
+   - `Flatbed`
+   - `FlatBed` (some manufacturers)
+   - `Platen`
+   - `Normal`
+4. Falls back to first available source if Flatbed not found
+5. Handles inactive/auto-selected sources gracefully
+
+#### Example Output
+
+```
+Configuring scanner...
+  Available sources: ['Flatbed', 'ADF']
+  Source: Flatbed ✓
+  Mode: Color
+  Resolution: 300 DPI
+```
+
+Or with auto-selection:
+
+```
+Configuring scanner...
+  Available sources: ['Flatbed']
+  Source: Flatbed (auto-selected)
+  Mode: Color
+  Resolution: 300 DPI
+```
+
+#### Testing Scanner Sources
+
+Use the test script to see your scanner's available sources:
+
+```bash
+uv run python test_source_selection.py
+```
+
+This will show:
+- Available sources
+- Which source will be selected
+- Whether option is active or auto-selected
+- Other scanner capabilities (ADF mode, duplex, etc.)
+
+#### Scanner Types
+
+**Single-source scanners** (Flatbed only):
+- Option is inactive (auto-selected)
+- POC reports: "Flatbed (auto-selected)"
+- No configuration needed
+
+**Multi-source scanners** (Flatbed + ADF):
+- Option is active and settable
+- POC will explicitly set to Flatbed
+- Prevents accidental ADF usage
+
+**ADF-only scanners** (rare):
+- Will use ADF as only source
+- May require manual feed for each scan
+
+#### Future Enhancements
+
+For production use, consider adding:
+- Command-line option to choose source: `--source flatbed|adf`
+- Batch scanning support for ADF
+- Auto-detect paper in feeder vs flatbed
+- Duplex scanning for two-sided documents
+
+#### Troubleshooting
+
+**"Source: Not configurable"**
+- Scanner doesn't have source selection
+- Will use default source (usually Flatbed)
+
+**"Source: Could not configure"**
+- Option exists but failed to set
+- Check scanner permissions
+- Scanner may not support SANE source selection
+
+**Using ADF instead of Flatbed**
+- Check available sources with test script
+- Verify Flatbed is in the list
+- May need scanner firmware update
+
