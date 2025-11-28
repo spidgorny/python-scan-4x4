@@ -4,22 +4,22 @@ Combined POC: Scan A4 Document and Split into 2x2 Grid
 Usage: python scan_and_split.py [output_dir]
 
 This script combines both scanning and splitting functionality.
+Requires a physical scanner. For simulation, use simulate_scan.py first.
 """
 
 import sys
 from pathlib import Path
 from datetime import datetime
-from poc_scan import scan_document_sane, scan_document_wia, create_simulated_scan, list_scanners, USE_SANE, USE_WIA, USE_PIL
+from poc_scan import scan_document_sane, scan_document_wia, list_scanners, USE_SANE, USE_WIA
 from poc_split import split_image_2x2
 
 
-def scan_and_split(output_dir="output", use_simulation=None):
+def scan_and_split(output_dir="output"):
     """
     Scan a document and split it into 2x2 grid.
     
     Args:
         output_dir: Directory to save split images
-        use_simulation: If True, force simulation mode. If None, auto-detect.
     
     Returns:
         List of split image file paths
@@ -33,34 +33,43 @@ def scan_and_split(output_dir="output", use_simulation=None):
         print("STEP 1: Scanning Document")
         print("=" * 60)
         
-        if use_simulation or (not USE_SANE and not USE_WIA):
-            # Simulation mode
-            scanned_file = create_simulated_scan(temp_scan_path)
-        elif USE_SANE:
+        if not USE_SANE and not USE_WIA:
+            print("\n✗ ERROR: No scanning library available!")
+            print("\nInstall dependencies:")
+            print("  Linux/macOS: brew install sane-backends && uv add python-sane")
+            print("  Windows: uv add pywin32")
+            print("\nOr use simulation mode:")
+            print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
+            sys.exit(1)
+        
+        if USE_SANE:
             # Real SANE scanner
             devices = list_scanners()
             if not devices:
-                print("\nNo scanners found. Using simulation mode instead.")
-                scanned_file = create_simulated_scan(temp_scan_path)
-            else:
-                print("\nPress Enter to start scanning (or Ctrl+C to cancel)...")
-                print("(Or type 's' + Enter to use simulation mode)")
-                response = input()
+                print("\n✗ ERROR: No scanners detected!")
+                print("\nTroubleshooting:")
+                print("  1. Check scanner is powered on and connected")
+                print("  2. Run: scanimage -L")
+                print("  3. Check permissions (may need sudo)")
+                print("\nOr use simulation mode:")
+                print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
+                sys.exit(1)
+            
+            print("\nPress Enter to start scanning (or Ctrl+C to cancel)...")
+            input()
+            
+            try:
+                scanned_file = scan_document_sane(temp_scan_path, device_index=0)
+            except Exception as scan_error:
+                print(f"\n✗ Scanner error: {scan_error}")
+                print("\nPossible reasons:")
+                print("  - No document on scanner bed")
+                print("  - Scanner in standby/power save mode")
+                print("  - Scanner busy with another application")
+                print("\nTry simulation mode instead:")
+                print("  uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png")
+                sys.exit(1)
                 
-                if response.lower() == 's':
-                    print("\nUsing simulation mode...")
-                    scanned_file = create_simulated_scan(temp_scan_path)
-                else:
-                    try:
-                        scanned_file = scan_document_sane(temp_scan_path, device_index=0)
-                    except Exception as scan_error:
-                        print(f"\n⚠️  Scanner error: {scan_error}")
-                        print("\nPossible reasons:")
-                        print("  - No document on scanner bed")
-                        print("  - Scanner in standby/power save mode")
-                        print("  - Scanner busy with another application")
-                        print("\nFalling back to simulation mode...")
-                        scanned_file = create_simulated_scan(temp_scan_path)
         elif USE_WIA:
             # Windows WIA scanner
             scanned_file = scan_document_wia(temp_scan_path)

@@ -40,37 +40,55 @@ cd python-scan-4x4
 
 ### Usage
 
-#### 1. Scan Only (POC)
+#### 1. Scan from Hardware Scanner
 ```bash
-# Run scanner POC
+# Run scanner (requires physical scanner)
 uv run poc_scan.py
 
 # Creates: scan_YYYYMMDD_HHMMSS.png
 ```
 
-#### 2. Split Only (POC)
+#### 2. Simulation Mode (No Scanner Required)
+```bash
+# Generate simulated scan
+uv run simulate_scan.py
+
+# Creates: simulated_scan_YYYYMMDD_HHMMSS.png
+```
+
+#### 3. Split Image
 ```bash
 # Split an existing scanned image
 uv run poc_split.py scan_20241128_183755.png
 
+# Or split simulated scan
+uv run poc_split.py simulated_scan_*.png
+
 # Output: 4 images in output/ directory
 ```
 
-#### 3. Complete Workflow (Scan + Split)
+#### 4. Complete Workflow (Scan + Split)
 ```bash
-# Scan and split in one command
+# Scan and split in one command (requires scanner)
 uv run scan_and_split.py
 
 # Optional: specify output directory
 uv run scan_and_split.py my_output/
 ```
 
+#### 5. Test Workflow (Simulation + Split)
+```bash
+# For testing without scanner hardware
+uv run simulate_scan.py && uv run poc_split.py simulated_scan_*.png
+```
+
 ## Features
 
 ### Current (Phase 1 - POC)
-- ✅ Scan A4 documents at 300 DPI
+- ✅ Scan A4 documents at 300 DPI (requires physical scanner)
+- ✅ **Automatic Flatbed source selection** (prefers flatbed over ADF)
 - ✅ Split scanned images into 2×2 grid (4 equal parts)
-- ✅ Simulation mode (works without scanner hardware)
+- ✅ **Separate simulation mode** for testing without hardware
 - ✅ Cross-platform support (macOS, Linux, Windows planned)
 - ✅ PNG output format with DPI metadata
 
@@ -106,9 +124,11 @@ python-scan-4x4/
 │   ├── POC_GUIDE.md        # Scanner POC guide
 │   ├── IMAGE_SPLITTING_GUIDE.md
 │   └── WEB_APP_DESIGN.md
-├── poc_scan.py             # Scanner POC script ✅
-├── poc_split.py            # Image splitting POC script ✅
+├── poc_scan.py             # Scanner POC (requires hardware) ✅
+├── simulate_scan.py        # Simulation mode (no hardware) ✅
+├── poc_split.py            # Image splitting POC ✅
 ├── scan_and_split.py       # Combined workflow ✅
+├── test_source_selection.py # Scanner source testing
 ├── output/                 # Split images output
 ├── pyproject.toml          # Python dependencies
 └── README.md               # This file
@@ -124,11 +144,23 @@ python-scan-4x4/
 
 ## Simulation Mode
 
-The POC scripts include simulation mode that works without scanner hardware:
+Simulation mode is now a **separate script** for testing without scanner hardware:
+
+```bash
+# Generate a simulated A4 document
+uv run simulate_scan.py
+
+# Then split it
+uv run poc_split.py simulated_scan_*.png
+```
+
+Features:
 - Generates realistic A4 document (2480×3508 @ 300 DPI)
 - Includes quadrant markers for visual verification
 - Perfect for testing the splitting logic
-- Useful for development without physical scanner
+- No scanner hardware required
+
+The main `poc_scan.py` and `scan_and_split.py` scripts **require a physical scanner** and will fail with helpful error messages if no scanner is detected.
 
 ## Real Scanner Support
 
@@ -161,29 +193,29 @@ Support planned using Windows Image Acquisition (WIA).
 
 ## Examples
 
-### Example 1: Quick Test
+### Example 1: Test Without Scanner
 ```bash
-# Generate simulated scan and split it
-uv run scan_and_split.py
+# Generate simulated scan
+uv run simulate_scan.py
+
+# Split it
+uv run poc_split.py simulated_scan_*.png
 
 # View output
 ls -lh output/
 ```
 
-### Example 2: Process Existing Image
+### Example 2: Real Scanner Workflow
+```bash
+# Scan and split with real scanner
+uv run scan_and_split.py
+# (Ensure document is on scanner bed)
+```
+
+### Example 3: Process Existing Image
 ```bash
 # Split any existing A4 image
 uv run poc_split.py my_document.png custom_output/
-```
-
-### Example 3: Real Scanner
-```bash
-# With SANE installed and scanner connected
-uv run poc_scan.py
-# Follow prompts to scan from hardware
-
-# Then split the scan
-uv run poc_split.py scan_*.png
 ```
 
 ## Troubleshooting

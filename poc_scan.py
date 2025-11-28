@@ -3,9 +3,8 @@
 Proof of Concept: Scan A4 Document from Scanner
 Usage: python poc_scan.py
 
-Note: This POC demonstrates the scanning workflow.
-For macOS without SANE installed, it will create a simulated scan using PIL.
-For production use, install SANE: brew install sane-backends
+This POC requires a physical scanner connected via SANE.
+For simulation mode, use: python simulate_scan.py
 """
 
 import sys
@@ -16,8 +15,6 @@ try:
     import sane
     USE_SANE = True
 except ImportError:
-    print("Note: python-sane not available (expected on macOS without SANE)")
-    print("Creating simulated scanner for demonstration...")
     USE_SANE = False
 
 # Alternative for Windows
@@ -26,13 +23,6 @@ try:
     USE_WIA = True
 except ImportError:
     USE_WIA = False
-
-# Pillow is always available for simulated scanning
-try:
-    from PIL import Image, ImageDraw, ImageFont
-    USE_PIL = True
-except ImportError:
-    USE_PIL = False
 
 
 def list_scanners():
@@ -219,122 +209,21 @@ def scan_document_wia(output_path="scanned_document.png"):
     return output_file
 
 
-def create_simulated_scan(output_path="scanned_document.png"):
-    """
-    Create a simulated A4 scan for demonstration purposes.
-    This is used when no actual scanner hardware is available.
-    
-    Args:
-        output_path: Where to save the simulated scan
-    """
-    if not USE_PIL:
-        raise RuntimeError("Pillow not available. Install with: uv add pillow")
-    
-    print("\n⚠️  SIMULATION MODE - No scanner hardware detected")
-    print("Creating a simulated A4 document scan for demonstration...\n")
-    
-    # A4 at 300 DPI: 2480 x 3508 pixels
-    width, height = 2480, 3508
-    
-    # Create white background
-    image = Image.new('RGB', (width, height), color='white')
-    draw = ImageDraw.Draw(image)
-    
-    # Add some text and shapes to simulate a document
-    # Draw a border
-    border_width = 50
-    draw.rectangle(
-        [(border_width, border_width), (width - border_width, height - border_width)],
-        outline='black',
-        width=3
-    )
-    
-    # Add title text
-    try:
-        # Try to use a default font, fall back to default if not available
-        font_large = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 80)
-        font_medium = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 50)
-        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 40)
-    except:
-        # Fallback to default font
-        font_large = ImageFont.load_default()
-        font_medium = ImageFont.load_default()
-        font_small = ImageFont.load_default()
-    
-    # Add document content
-    y_position = 200
-    
-    draw.text((width // 2, y_position), "SIMULATED A4 DOCUMENT", 
-              fill='black', font=font_large, anchor="mm")
-    
-    y_position += 150
-    draw.text((width // 2, y_position), "Proof of Concept - Scanner Demo", 
-              fill='gray', font=font_medium, anchor="mm")
-    
-    y_position += 200
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    draw.text((width // 2, y_position), f"Generated: {timestamp}", 
-              fill='black', font=font_small, anchor="mm")
-    
-    y_position += 100
-    draw.text((width // 2, y_position), "Resolution: 300 DPI", 
-              fill='black', font=font_small, anchor="mm")
-    
-    y_position += 80
-    draw.text((width // 2, y_position), f"Size: {width} x {height} pixels", 
-              fill='black', font=font_small, anchor="mm")
-    
-    # Add quadrant markers (to help visualize 2x2 split)
-    mid_x = width // 2
-    mid_y = height // 2
-    
-    # Draw center cross
-    draw.line([(mid_x, border_width), (mid_x, height - border_width)], 
-              fill='lightgray', width=2)
-    draw.line([(border_width, mid_y), (width - border_width, mid_y)], 
-              fill='lightgray', width=2)
-    
-    # Label quadrants
-    quadrant_labels = [
-        ("Quadrant 1", mid_x // 2, mid_y // 2),
-        ("Quadrant 2", mid_x + mid_x // 2, mid_y // 2),
-        ("Quadrant 3", mid_x // 2, mid_y + mid_y // 2),
-        ("Quadrant 4", mid_x + mid_x // 2, mid_y + mid_y // 2),
-    ]
-    
-    for label, x, y in quadrant_labels:
-        draw.text((x, y), label, fill='lightblue', font=font_medium, anchor="mm")
-    
-    # Add some sample content blocks
-    y_position = height - 400
-    draw.text((width // 2, y_position), 
-              "This simulated document will be split into 4 equal parts", 
-              fill='black', font=font_small, anchor="mm")
-    
-    y_position += 80
-    draw.text((width // 2, y_position), 
-              "Install SANE for real scanner support", 
-              fill='darkred', font=font_small, anchor="mm")
-    
-    # Save the simulated scan
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_file, 'PNG', dpi=(300, 300))
-    
-    print(f"✓ Simulated scan complete!")
-    print(f"  Saved to: {output_file.absolute()}")
-    print(f"  Size: {output_file.stat().st_size / 1024 / 1024:.2f} MB")
-    print(f"  Dimensions: {image.size[0]} x {image.size[1]} pixels")
-    print(f"  DPI: 300 x 300")
-    
-    return output_file
-
-
 def main():
     """Main entry point."""
     print("=" * 60)
     print("A4 Document Scanner - Proof of Concept")
     print("=" * 60)
+    
+    # Check which scanning method is available
+    if not USE_SANE and not USE_WIA:
+        print("\n✗ ERROR: No scanning library available!")
+        print("\nInstall dependencies:")
+        print("  Linux/macOS: brew install sane-backends && uv add python-sane")
+        print("  Windows: uv add pywin32")
+        print("\nOr use simulation mode:")
+        print("  uv run simulate_scan.py")
+        sys.exit(1)
     
     # Generate output filename with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -345,44 +234,35 @@ def main():
             # List available scanners first
             devices = list_scanners()
             if not devices:
-                print("\nNo scanners found. Falling back to simulation mode.")
-                create_simulated_scan(output_path)
-                return
+                print("\n✗ ERROR: No scanners detected!")
+                print("\nTroubleshooting:")
+                print("  1. Check scanner is powered on and connected")
+                print("  2. Run: scanimage -L")
+                print("  3. Check permissions (may need sudo)")
+                print("\nOr use simulation mode:")
+                print("  uv run simulate_scan.py")
+                sys.exit(1)
             
             # Use first scanner by default
             print("\nUsing first scanner (index 0)")
             print("Press Ctrl+C to cancel, or Enter to continue...")
-            print("(Or 's' + Enter to use simulation mode)")
-            response = input()
-            
-            if response.lower() == 's':
-                print("\nUsing simulation mode...")
-                create_simulated_scan(output_path)
-                return
+            input()
             
             try:
                 scan_document_sane(output_path, device_index=0)
             except Exception as scan_error:
-                print(f"\n⚠️  Scanner error: {scan_error}")
+                print(f"\n✗ Scanner error: {scan_error}")
                 print("\nPossible reasons:")
                 print("  - No document on scanner bed")
                 print("  - Scanner is in standby/power save mode")
                 print("  - Scanner is being used by another application")
                 print("  - Connection issue")
-                print("\nFalling back to simulation mode...")
-                create_simulated_scan(output_path)
+                print("\nTry simulation mode instead:")
+                print("  uv run simulate_scan.py")
+                sys.exit(1)
         
         elif USE_WIA:
             scan_document_wia(output_path)
-        
-        else:
-            # No scanner library available - use simulation
-            if not USE_PIL:
-                print("\nERROR: Pillow not available!")
-                print("Install with: uv add pillow")
-                sys.exit(1)
-            
-            create_simulated_scan(output_path)
         
     except KeyboardInterrupt:
         print("\n\nScan cancelled by user.")
