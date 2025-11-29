@@ -65,19 +65,23 @@
                 <h2 class="text-xl font-semibold text-gray-800">Extracted Photos</h2>
                 <span id="photoCount" class="text-sm font-medium text-gray-500">0/4</span>
             </div>
-            <div id="photosGrid" class="flex-1 grid grid-cols-2 gap-3 p-4 overflow-y-auto">
-                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+            <div id="photosGrid" class="grid grid-cols-2 gap-3 p-4 content-start">
+                <div class="bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 min-h-32">
                     <span class="text-3xl font-light text-gray-400">1</span>
                 </div>
-                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div class="bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 min-h-32">
                     <span class="text-3xl font-light text-gray-400">2</span>
                 </div>
-                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div class="bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 min-h-32">
                     <span class="text-3xl font-light text-gray-400">3</span>
                 </div>
-                <div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div class="bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 min-h-32">
                     <span class="text-3xl font-light text-gray-400">4</span>
                 </div>
+            </div>
+            <div id="splitLogs" class="border-t border-gray-200 p-4 bg-gray-50 overflow-y-auto max-h-64 hidden">
+                <h3 class="text-xs font-semibold text-gray-600 uppercase mb-2">Split Logs</h3>
+                <pre class="text-[10px] text-gray-700 font-mono whitespace-pre-wrap"></pre>
             </div>
         </aside>
     </div>

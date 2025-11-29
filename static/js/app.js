@@ -63,6 +63,7 @@ function selectScan(scan) {
     renderScansList();
     displayScan(scan);
     displayPhotos(scan);
+    displaySplitLogs(scan);
     
     // Show split button
     splitBtn.classList.remove('hidden');
@@ -80,18 +81,44 @@ function displayPhotos(scan) {
     
     for (let i = 0; i < 4; i++) {
         const slot = document.createElement('div');
-        slot.className = 'aspect-square rounded-lg overflow-hidden';
+        slot.className = 'rounded-lg overflow-hidden relative';
         
         if (i < scan.photos.length) {
-            slot.innerHTML = `<img src="${scan.photos[i]}" alt="Photo ${i + 1}" class="w-full h-full object-cover">`;
+            const img = new Image();
+            img.src = scan.photos[i];
+            img.onload = function() {
+                const resolution = `${this.naturalWidth} × ${this.naturalHeight}`;
+                const resolutionDiv = slot.querySelector('.resolution-info');
+                if (resolutionDiv) {
+                    resolutionDiv.textContent = resolution;
+                }
+            };
+            slot.innerHTML = `
+                <img src="${scan.photos[i]}" alt="Photo ${i + 1}" class="w-full h-auto object-contain border-2 border-gray-300 rounded-lg">
+                <div class="resolution-info absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-[8px] px-1 rounded">Loading...</div>
+            `;
         } else {
-            slot.innerHTML = `<div class="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center"><span class="text-3xl font-light text-gray-400">${i + 1}</span></div>`;
+            slot.innerHTML = `<div class="w-full min-h-32 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center rounded-lg"><span class="text-3xl font-light text-gray-400">${i + 1}</span></div>`;
         }
         
         photosGrid.appendChild(slot);
     }
     
     photoCount.textContent = `${scan.photos.length}/4`;
+}
+
+// Display split logs
+function displaySplitLogs(scan) {
+    const splitLogsDiv = document.getElementById('splitLogs');
+    const logsPreElement = splitLogsDiv.querySelector('pre');
+    
+    if (scan.split_log) {
+        logsPreElement.textContent = scan.split_log;
+        splitLogsDiv.classList.remove('hidden');
+    } else {
+        logsPreElement.textContent = '';
+        splitLogsDiv.classList.add('hidden');
+    }
 }
 
 // Trigger split

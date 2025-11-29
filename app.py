@@ -53,11 +53,18 @@ def list_scans():
         basename = scan_file.stem
         photos = sorted(PHOTOS_DIR.glob(f"{basename}_photo*.png"))
         
+        # Check for split log
+        log_file = PHOTOS_DIR / f"{basename}_split_log.txt"
+        split_log = None
+        if log_file.exists():
+            split_log = log_file.read_text()
+        
         scans.append({
             'filename': scan_file.name,
             'path': f'/scans/{scan_file.name}',
             'timestamp': scan_file.stat().st_mtime,
-            'photos': [f'/photos/{p.name}' for p in photos]
+            'photos': [f'/photos/{p.name}' for p in photos],
+            'split_log': split_log
         })
     
     return jsonify(scans)
@@ -136,7 +143,7 @@ def perform_scan():
         
         # Configure settings
         settings = ScanSettings(
-            resolution=300,
+            resolution=600,
             color_mode=ColorMode.COLOR,
             format="PNG"
         )
