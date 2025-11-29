@@ -172,13 +172,21 @@ def perform_scan():
 @app.route('/scans/<path:filename>')
 def serve_scan(filename):
     """Serve scanned images"""
-    return send_from_directory(SCANS_DIR, filename)
+    response = send_from_directory(SCANS_DIR, filename)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 @app.route('/photos/<path:filename>')
 def serve_photo(filename):
     """Serve photo images"""
-    return send_from_directory(PHOTOS_DIR, filename)
+    response = send_from_directory(PHOTOS_DIR, filename)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 if __name__ == '__main__':

@@ -84,8 +84,11 @@ function displayPhotos(scan) {
         slot.className = 'rounded-lg overflow-hidden relative';
         
         if (i < scan.photos.length) {
+            // Add cache-busting timestamp to prevent browser caching
+            const photoUrl = `${scan.photos[i]}?t=${Date.now()}`;
+            
             const img = new Image();
-            img.src = scan.photos[i];
+            img.src = photoUrl;
             img.onload = function() {
                 const resolution = `${this.naturalWidth} × ${this.naturalHeight}`;
                 const resolutionDiv = slot.querySelector('.resolution-info');
@@ -94,7 +97,7 @@ function displayPhotos(scan) {
                 }
             };
             slot.innerHTML = `
-                <img src="${scan.photos[i]}" alt="Photo ${i + 1}" class="w-full h-auto object-contain border-2 border-gray-300 rounded-lg">
+                <img src="${photoUrl}" alt="Photo ${i + 1}" class="w-full h-auto object-contain border-2 border-gray-300 rounded-lg">
                 <div class="resolution-info absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-[8px] px-1 rounded">Loading...</div>
             `;
         } else {

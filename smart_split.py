@@ -1,16 +1,45 @@
 #!/usr/bin/env python3
 """
-Smart Photo Splitter V2 - Grid-based with refinement
-
-Uses a combination of grid splitting and edge detection to accurately
-split 2x2 photo layouts, handling white borders and slight misalignment.
+Smart Photo Splitter V3 - Contour-based Detection
+Uses OpenCV contour detection to properly identify and extract photos
+separated by white background, handling 1-4 photos of any size/orientation.
 """
 
 import sys
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple
+import io
+
+
+def capture_logs(func):
+    """Decorator to capture print statements to a log"""
+    def wrapper(*args, **kwargs):
+        log_buffer = io.StringIO()
+        original_stdout = sys.stdout
+        
+        class TeeOutput:
+            def __init__(self, *outputs):
+                self.outputs = outputs
+            def write(self, text):
+                for output in self.outputs:
+                    output.write(text)
+            def flush(self):
+                for output in self.outputs:
+                    output.flush()
+        
+        sys.stdout = TeeOutput(original_stdout, log_buffer)
+        
+        try:
+            result = func(*args, **kwargs)
+            return result, log_buffer.getvalue()
+        finally:
+            sys.stdout = original_stdout
+            log_buffer.close()
+    
+    return wrapper
+
 
 def load_image(image_path: str) -> np.ndarray:
     """Load image from file"""
@@ -19,157 +48,189 @@ def load_image(image_path: str) -> np.ndarray:
         raise FileNotFoundError(f"Cannot load image: {image_path}")
     return img
 
-def has_content(gray_section: np.ndarray, threshold: int = 220, min_area_ratio: float = 0.05) -> bool:
+
+def detect_photos(img: np.ndarray, gray: np.ndarray) -> List[Tuple[int, int, int, int]]:
     """
-    Check if a section has actual photo content (not just white/light gray background).
-    Uses adaptive thresholding to handle slightly gray backgrounds.
+    Detect individual photos using contour detection.
     
     Args:
-        gray_section: Grayscale image section
-        threshold: Brightness threshold for detecting background (220 = allows slightly gray)
-        min_area_ratio: Minimum ratio of content area to total area (5% default)
+        img: Original BGR image
+        gray: Grayscale version
     
     Returns:
-        True if section contains meaningful photo content
+        List of bounding boxes (x, y, w, h) for each detected photo
     """
-    # Calculate mean brightness to detect overall darkness
-    mean_brightness = np.mean(gray_section)
+    print("\nDetecting photos using contour analysis...")
     
-    # If section is significantly darker than threshold, it has content
-    if mean_brightness < threshold - 20:
-        return True
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     
-    # Also use threshold method for edge detection
-    _, binary = cv2.threshold(gray_section, threshold, 255, cv2.THRESH_BINARY_INV)
-    content_pixels = np.sum(binary > 0)
-    total_pixels = gray_section.shape[0] * gray_section.shape[1]
-    content_ratio = content_pixels / total_pixels
-    
-    return content_ratio > min_area_ratio
-
-def find_content_bounds(gray_section: np.ndarray, threshold: int = 220) -> Tuple[int, int, int, int]:
-    """
-    Find actual content bounds within a section by detecting non-background areas.
-    Uses adaptive approach to handle slightly gray backgrounds.
-    
-    Returns: (top, bottom, left, right) margins from edges
-    """
-    # Use adaptive threshold to handle varying background brightness
-    # This works better than fixed threshold for slightly gray backgrounds
+    # Use adaptive thresholding to handle varying background brightness
     binary = cv2.adaptiveThreshold(
-        gray_section,
+        blurred,
         255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
-        blockSize=51,  # Large block size for smoother detection
-        C=-10  # Negative constant to be more aggressive
+        blockSize=51,
+        C=10
     )
     
-    # Also use fixed threshold and combine
-    _, binary_fixed = cv2.threshold(gray_section, threshold, 255, cv2.THRESH_BINARY_INV)
-    
-    # Combine both methods (OR operation)
-    binary = cv2.bitwise_or(binary, binary_fixed)
-    
-    # Apply morphological closing to connect nearby content
-    kernel = np.ones((5, 5), np.uint8)
+    # Morphological operations to clean up and connect photo regions
+    kernel = np.ones((15, 15), np.uint8)
     binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
     
-    # Find where content exists
+    # Find contours
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Filter contours by area and aspect ratio
+    min_area = (img.shape[0] * img.shape[1]) * 0.02  # At least 2% of image
+    max_area = (img.shape[0] * img.shape[1]) * 0.9   # At most 90% of image
+    
+    photo_boxes = []
+    
+    for i, contour in enumerate(contours):
+        area = cv2.contourArea(contour)
+        
+        if area < min_area or area > max_area:
+            continue
+        
+        # Get bounding rectangle
+        x, y, w, h = cv2.boundingRect(contour)
+        
+        # Filter out very thin/small regions
+        if w < 100 or h < 100:
+            continue
+        
+        # Calculate aspect ratio
+        aspect_ratio = w / h if h > 0 else 0
+        
+        # Photos typically have aspect ratio between 0.3 and 3.0
+        if aspect_ratio < 0.3 or aspect_ratio > 3.5:
+            continue
+        
+        photo_boxes.append((x, y, w, h))
+        print(f"  Found photo {len(photo_boxes)}: pos=({x},{y}) size={w}x{h} area={area:.0f} ratio={aspect_ratio:.2f}")
+    
+    # Sort by position (top to bottom, left to right)
+    photo_boxes.sort(key=lambda box: (box[1], box[0]))
+    
+    print(f"\n  Total photos detected: {len(photo_boxes)}")
+    
+    return photo_boxes
+
+
+def refine_photo_bounds(img: np.ndarray, gray: np.ndarray, x: int, y: int, w: int, h: int) -> Tuple[int, int, int, int]:
+    """
+    Refine photo boundaries to remove white borders and straighten edges.
+    
+    Args:
+        img: Original BGR image
+        gray: Grayscale version
+        x, y, w, h: Initial bounding box
+    
+    Returns:
+        Refined (x, y, w, h) bounding box
+    """
+    # Extract region with some padding
+    pad = 20
+    y1 = max(0, y - pad)
+    y2 = min(gray.shape[0], y + h + pad)
+    x1 = max(0, x - pad)
+    x2 = min(gray.shape[1], x + w + pad)
+    
+    region = gray[y1:y2, x1:x2]
+    
+    # Apply threshold to find content
+    _, binary = cv2.threshold(region, 220, 255, cv2.THRESH_BINARY_INV)
+    
+    # Find content bounds
     rows_with_content = np.any(binary > 0, axis=1)
     cols_with_content = np.any(binary > 0, axis=0)
     
-    # Find first and last rows/cols with content
     row_indices = np.where(rows_with_content)[0]
     col_indices = np.where(cols_with_content)[0]
     
     if len(row_indices) == 0 or len(col_indices) == 0:
-        # No content found
-        return 0, gray_section.shape[0], 0, gray_section.shape[1]
+        # No refinement possible, return original
+        return x, y, w, h
     
-    top = row_indices[0]
-    bottom = gray_section.shape[0] - row_indices[-1]
-    left = col_indices[0]
-    right = gray_section.shape[1] - col_indices[-1]
+    # Calculate refined bounds
+    new_y1 = y1 + row_indices[0]
+    new_y2 = y1 + row_indices[-1]
+    new_x1 = x1 + col_indices[0]
+    new_x2 = x1 + col_indices[-1]
     
-    return top, bottom, left, right
+    return new_x1, new_y1, new_x2 - new_x1, new_y2 - new_y1
 
-def detect_layout(img: np.ndarray, gray: np.ndarray, margin_threshold: int = 220) -> str:
+
+@capture_logs
+def split_photos_smart(
+    image_path: str,
+    output_dir: str = "photos"
+) -> List[str]:
     """
-    Detect the layout of photos on the page (1, 2, 3, or 4 photos).
-    Note: Expects pre-cropped image with page margins already removed.
+    Split scanned page into individual photos using contour detection.
+    Automatically detects 1-4 photos of any size and orientation.
     
     Args:
-        img: Original BGR image (already cropped to content)
-        gray: Grayscale version of image (already cropped to content)
-        margin_threshold: Brightness threshold for detecting white areas
+        image_path: Path to scanned image
+        output_dir: Output directory for split photos
     
     Returns:
-        Layout type: "2x2", "3_photos", "2x1", "1x2", or "1x1"
+        List of saved photo file paths
     """
-    h, w = gray.shape
+    print("=" * 60)
+    print("Smart Photo Splitter V3 - Contour Detection")
+    print("=" * 60)
     
-    # For single photo detection, check if content spans multiple quadrants
-    # by looking at thirds instead of halves to handle larger photos
-    third_h = h // 3
-    third_w = w // 3
+    # Load image
+    print(f"\nLoading: {image_path}")
+    img = load_image(image_path)
+    h, w = img.shape[:2]
+    print(f"  Size: {w} x {h} pixels")
     
-    # Check each quadrant for content
-    mid_h = h // 2
-    mid_w = w // 2
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    quadrants = {
-        'top_left': gray[0:mid_h, 0:mid_w],
-        'top_right': gray[0:mid_h, mid_w:w],
-        'bottom_left': gray[mid_h:h, 0:mid_w],
-        'bottom_right': gray[mid_h:h, mid_w:w],
-    }
+    # Detect photos
+    photo_boxes = detect_photos(img, gray)
     
-    content_map = {
-        name: has_content(section, margin_threshold)
-        for name, section in quadrants.items()
-    }
+    if len(photo_boxes) == 0:
+        print("\n⚠ No photos detected!")
+        return []
     
-    content_count = sum(content_map.values())
+    # Process and save each photo
+    print(f"\nExtracting {len(photo_boxes)} photo(s)...")
+    output_files = []
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     
-    print(f"\n  Content detection:")
-    for name, has_c in content_map.items():
-        print(f"    {name}: {'✓ Photo' if has_c else '✗ Empty'}")
+    base_name = Path(image_path).stem
     
-    # Determine layout
-    if content_count == 4:
-        return "2x2"
-    elif content_count == 3:
-        # Three photos - treat as 2x2 and filter empty quadrant
-        return "3_photos"
-    elif content_count == 2:
-        # Check if horizontal or vertical
-        if content_map['top_left'] and content_map['top_right']:
-            return "1x2_top"
-        elif content_map['bottom_left'] and content_map['bottom_right']:
-            return "1x2_bottom"
-        elif content_map['top_left'] and content_map['bottom_left']:
-            return "2x1_left"
-        elif content_map['top_right'] and content_map['bottom_right']:
-            return "2x1_right"
-        else:
-            # Diagonal - treat as 2x2 but will filter empty ones
-            return "2x2"
-    elif content_count == 1:
-        # Single photo - return which quadrant it's in for smarter cropping
-        if content_map['top_left']:
-            return "1x1_top_left"
-        elif content_map['top_right']:
-            return "1x1_top_right"
-        elif content_map['bottom_left']:
-            return "1x1_bottom_left"
-        elif content_map['bottom_right']:
-            return "1x1_bottom_right"
-        else:
-            return "1x1"
-    else:
-        # Default to 2x2 if detection is unclear
-        return "2x2"
+    for i, (x, y, w, h) in enumerate(photo_boxes, 1):
+        print(f"\n  Photo {i}:")
+        print(f"    Initial bounds: ({x},{y}) {w}x{h}")
+        
+        # Refine boundaries
+        x_refined, y_refined, w_refined, h_refined = refine_photo_bounds(img, gray, x, y, w, h)
+        print(f"    Refined bounds: ({x_refined},{y_refined}) {w_refined}x{h_refined}")
+        
+        # Extract photo
+        photo = img[y_refined:y_refined+h_refined, x_refined:x_refined+w_refined]
+        
+        # Save
+        output_file = output_path / f"{base_name}_photo_{i}.png"
+        cv2.imwrite(str(output_file), photo)
+        output_files.append(str(output_file))
+        print(f"    ✓ Saved: {output_file}")
+    
+    print("\n" + "=" * 60)
+    print(f"✓ Split complete! Saved {len(output_files)} photo(s)")
+    print("=" * 60)
+    
+    return output_files
+
 
 def split_photos_grid_smart(
     image_path: str,
@@ -177,178 +238,23 @@ def split_photos_grid_smart(
     margin_threshold: int = 220
 ) -> List[str]:
     """
-    Split scanned A4 with photos using smart detection + cropping.
-    Automatically detects if there are 1, 2, 3, or 4 photos on the page.
-    
-    Args:
-        image_path: Path to scanned image
-        output_dir: Output directory for split photos
-        margin_threshold: Brightness threshold for detecting white margins (0-255)
-    
-    Returns:
-        List of saved photo file paths
+    Wrapper function for backward compatibility with existing code.
+    Calls the new contour-based detection.
     """
-    # Capture logs
-    import io
-    import sys
+    output_files, log_content = split_photos_smart(image_path, output_dir)
     
-    log_buffer = io.StringIO()
-    original_stdout = sys.stdout
-    
-    class TeeOutput:
-        def __init__(self, *outputs):
-            self.outputs = outputs
-        def write(self, text):
-            for output in self.outputs:
-                output.write(text)
-        def flush(self):
-            for output in self.outputs:
-                output.flush()
-    
-    sys.stdout = TeeOutput(original_stdout, log_buffer)
-    
-    try:
-        print("=" * 60)
-        print("Smart Photo Splitter V2 - Adaptive Layout")
-        print("=" * 60)
-        
-        # Load image
-        print(f"\nLoading: {image_path}")
-        img = load_image(image_path)
-        h, w = img.shape[:2]
-        print(f"  Size: {w} x {h} pixels")
-        
-        # Convert to grayscale for analysis
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # FIRST: Remove white borders from entire scan
-        print("\nRemoving page margins...")
-        page_top, page_bottom, page_left, page_right = find_content_bounds(gray, margin_threshold)
-        
-        # Crop to actual content area
-        img = img[page_top:h-page_bottom, page_left:w-page_right]
-        gray = gray[page_top:h-page_bottom, page_left:w-page_right]
-        
-        h, w = img.shape[:2]
-        print(f"  Cropped to content area: {w} x {h} pixels")
-        print(f"  Removed margins: top={page_top}, bottom={page_bottom}, left={page_left}, right={page_right}")
-        
-        # THEN: Detect layout
-        print("\nDetecting layout...")
-        layout = detect_layout(img, gray, margin_threshold)
-        print(f"\n  Detected layout: {layout}")
-        
-        # Define sections based on layout
-        mid_h = h // 2
-        mid_w = w // 2
-        
-        sections = []
-        
-        if layout.startswith("1x1"):
-            # Single photo - use full content area (already cropped from page margins)
-            # Don't subdivide, just crop to actual photo bounds
-            sections = [
-                ((0, h), (0, w), "single"),
-            ]
-        elif layout == "1x2_top":
-            # Two photos side by side at top
-            sections = [
-                ((0, h), (0, mid_w), "left"),
-                ((0, h), (mid_w, w), "right"),
-            ]
-        elif layout == "1x2_bottom":
-            # Two photos side by side at bottom
-            sections = [
-                ((0, h), (0, mid_w), "left"),
-                ((0, h), (mid_w, w), "right"),
-            ]
-        elif layout == "2x1_left":
-            # Two photos stacked on left
-            sections = [
-                ((0, mid_h), (0, w), "top"),
-                ((mid_h, h), (0, w), "bottom"),
-            ]
-        elif layout == "2x1_right":
-            # Two photos stacked on right
-            sections = [
-                ((0, mid_h), (0, w), "top"),
-                ((mid_h, h), (0, w), "bottom"),
-            ]
-        elif layout == "3_photos":
-            # Three photos - use 2x2 grid and skip empty quadrant
-            sections = [
-                ((0, mid_h), (0, mid_w), "top-left"),
-                ((0, mid_h), (mid_w, w), "top-right"),
-                ((mid_h, h), (0, mid_w), "bottom-left"),
-                ((mid_h, h), (mid_w, w), "bottom-right"),
-            ]
-        else:  # 2x2 or default
-            # Four photos in 2x2 grid
-            sections = [
-                ((0, mid_h), (0, mid_w), "top-left"),
-                ((0, mid_h), (mid_w, w), "top-right"),
-                ((mid_h, h), (0, mid_w), "bottom-left"),
-                ((mid_h, h), (mid_w, w), "bottom-right"),
-            ]
-        
-        # Process each section
-        print(f"\nProcessing {len(sections)} section(s)...")
-        output_files = []
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        base_name = Path(image_path).stem
-        photo_num = 1
-        
-        for ((y1, y2), (x1, x2), position) in sections:
-            print(f"\n  Section {position}:")
-            print(f"    Grid bounds: ({x1}, {y1}) to ({x2}, {y2})")
-            
-            # Extract section
-            section = img[y1:y2, x1:x2]
-            gray_section = gray[y1:y2, x1:x2]
-            
-            # Check if this section has content
-            if not has_content(gray_section, margin_threshold):
-                print(f"    ✗ Skipping - no content detected")
-                continue
-            
-            # Find content bounds (remove white borders)
-            top, bottom, left, right = find_content_bounds(gray_section, margin_threshold)
-            
-            print(f"    Margins: top={top}, bottom={bottom}, left={left}, right={right}")
-            
-            # Crop to content
-            cropped = section[top:section.shape[0]-bottom, left:section.shape[1]-right]
-            
-            print(f"    Final size: {cropped.shape[1]} x {cropped.shape[0]}")
-            
-            # Save
-            output_file = output_path / f"{base_name}_photo_{photo_num}.png"
-            cv2.imwrite(str(output_file), cropped)
-            output_files.append(str(output_file))
-            print(f"    ✓ Saved: {output_file}")
-            photo_num += 1
-        
-        print("\n" + "=" * 60)
-        print(f"✓ Split complete! Saved {len(output_files)} photo(s)")
-        print("=" * 60)
-        
-    finally:
-        # Restore stdout and save log
-        sys.stdout = original_stdout
-        log_content = log_buffer.getvalue()
-        log_buffer.close()
-        
-        # Save log file
-        log_file = output_path / f"{base_name}_split_log.txt"
-        log_file.write_text(log_content)
+    # Save log file
+    output_path = Path(output_dir)
+    base_name = Path(image_path).stem
+    log_file = output_path / f"{base_name}_split_log.txt"
+    log_file.write_text(log_content)
     
     return output_files
 
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: smart_split_v2.py <scan_image>")
+        print("Usage: smart_split.py <scan_image>")
         sys.exit(1)
     
     split_photos_grid_smart(sys.argv[1])
