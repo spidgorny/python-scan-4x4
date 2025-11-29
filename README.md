@@ -2,6 +2,8 @@
 
 A web application that scans A4 documents from a connected scanner and automatically splits them into a 2×2 grid (4 separate images).
 
+![img.png](img.png)
+
 ## Project Status
 
 ✅ **Phase 2 Complete: Web Application**
